@@ -1,0 +1,61 @@
+Variable,Meaning,Procedure
+PROVINCIA,respondent's province,
+HABITAT,respondent's habitat,
+MUNICIPI,respondent's municipally,
+COMARCA,respondent's region,
+SEXE,respondent's gender,Answer to question to the survey
+EDAT,respondent's age,Answer to question to the survey
+EDAT_GR,respondent's group age,Assigned to a group depending of var EDAT in 15 years interval
+EDAT_CEO,respondent's group age,Assigned to a group depending of var EDAT in 5 years interval
+LLOC_NAIX,respondent's place of birth,Answer to question to the survey
+SIT_ECO_CAT,Answer Question 1,Answer to question to the survey
+SIT_ECO_CAT_RETROSPECTIVA,Answer Question 2,Answer to question to the survey
+SIT_ECO_CAT_PROSPECTIVA,Answer Question 3,Answer to question to the survey
+SIT_ECO_ESP,Answer Question 4,Answer to question to the survey
+SIT_ECO_PERSONAL,Answer Question 5,Answer to question to the survey
+SIT_POL_CAT,Answer Question 6,Answer to question to the survey
+SIT_POL_CAT_RETROSPECTIVA,Answer Question 7,Answer to question to the survey
+SIT_POL_CAT_PROSPECTIVA,Answer Question 8,Answer to question to the survey
+SIT_POL_ESP,Answer Question 9,Answer to question to the survey
+CAT_ESP,Answer Question 10,Answer to question to the survey
+VOT_DRET_DEURE,Answer Question 30,Answer to question to the survey
+ELECCIONS_IMPORTANCIA,Answer Question 31,Answer to question to the survey
+SATISFACCIO_ELECCIONS_14F2021,Answer Question 32,Answer to question to the survey
+PART_PARLAMENT,Answer Question 33,Answer to question to the survey
+REC_PARLAMENT_VOT_DECISIO,Answer Question 34,Only asked if PART_PARLAMENT = Vote
+REC_PARLAMENT_VOT,Answer Question 35,Only asked if PART_PARLAMENT = Vote
+REC_PARLAMENT_VOT_LITERALS,Answer Question 35,Only asked if PART_PARLAMENT = Vote AND Selected = Altres partits as answer
+REC_PARLAMENT_FERMESA,Answer Question 36,Answer to question to the survey
+REC_PARLAMENT_CANDIDAT,Answer Question 37,The enquestee selected this option as one of the two options
+REC_PARLAMENT_PARTIT,Answer Question 37,The enquestee selected this option as one of the two options
+REC_PARLAMENT_INTERESSOS,Answer Question 37,The enquestee selected this option as one of the two options
+REC_PARLAMENT_IDEES,Answer Question 37,The enquestee selected this option as one of the two options
+REC_PARLAMENT_ACTUACIO,Answer Question 37,The enquestee selected this option as one of the two options
+REC_PARLAMENT_ACTUACIO_2,Answer Question 37,The enquestee selected this option as one of the two options
+REC_PARLAMENT_EVITAR,Answer Question 37,The enquestee selected this option as one of the two options
+REC_PARLAMENT_ALTRES,Answer Question 37,The enquestee selected this option as one of the two options
+REC_PARLAMENT_CAP,Answer Question 37,The enquestee selected this option as one of the two options
+REC_PARLAMENT_NS,Answer Question 37,The enquestee selected this option as one of the two options
+REC_PARLAMENT_NA,Answer Question 37,The enquestee selected this option as one of the two options
+REC_PARLAMENT_NC,Answer Question 37,The enquestee selected this option as one of the two options
+POST_PARLAMENT_DECISIO_RELACIO,Answer Question 38 a,Answer to question to the survey
+POST_PARLAMENT_DECISIO_CRISI,Answer Question 38 b,Answer to question to the survey
+POST_PARLAMENT_DECISIO_CORRUPCIO,Answer Question 38 c,Answer to question to the survey
+POST_PARLAMENT_DECISIO_CANVI_CLIMATIC,Answer Question 38 d,Answer to question to the survey
+POST_PARLAMENT_DECISIO_COVID,Answer Question 38 e,Answer to question to the survey
+INT_PARLAMENT_VOT,Answer Question 39,Answer to question to the survey
+INT_PARLAMENT_VOT_LITERALS,Answer Question 39,Only asked if in INT_PARLAMENT_VOT Selected = Altres partits as answer
+PART_PARLAMENT_ANTERIORS,Answer Question 40,Only asked if PART_PARLAMENT_ANTERIORS = Vote
+REC_PARLAMENT_VOT_ANTERIORS,Answer Question 41,Only asked if PART_PARLAMENT_ANTERIORS = Vote AND Selected = Altres partits as answer
+REC_PARLAMENT_VOT_ANTERIORS_LITERALS,Answer Question 41,Answer to question to the survey
+INT_CONGRES_VOT,Answer Question 42,Answer to question to the survey
+INT_CONGRES_VOT_LITERALS,Answer Question 42,Only asked if in INT_CONGRES_VOT Selected = Altres partits as answer
+PART_CONGRES,Answer Question 43,Answer to question to the survey
+REC_CONGRES_VOT,Answer Question 44,Only asked if in PART_CONGRES Selected = Altres partits as answer
+REC_CONGRES_VOT_LITERALS,Answer Question 44,Only asked if PART_CONGRES= Vote
+IDEOL_1_7,Answer Question 20,Answer ro question to the survey
+CAT_0_10,Answer Question 21,Answer ro question to the survey
+ESP_0_10,Answer Question 22,Answer ro question to the survey
+MONARQUIA_REPUBLICA,Answer Question 23,Answer ro question to the survey
+SIGNIFICA_ESP,Answer Question 24,Answer ro question to the survey
+ACTITUD_INDEPENDENCIA,Answer Question 28,Answer ro question to the survey

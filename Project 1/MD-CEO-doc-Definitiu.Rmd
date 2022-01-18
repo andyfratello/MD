@@ -1,0 +1,1711 @@
+---
+title: "Political Context Analysis"
+subtitle: "Data Mining"
+author:
+date: "28/10/2021"
+output:
+  word_document: default
+  html_document:
+    df_print: paged
+  pdf_document:
+    includes:
+      in_header: header.tex
+  header-includes:
+   - \usepackage{fullpage}
+   - \usepackage{pdflscape}
+   - \makeindex
+---
+<style>
+body {
+text-align: justify}
+</style>
+
+\newpage
+\tableofcontents 
+\newpage
+
+
+
+# Motivation and general description of the problem to be analyzed
+
+The motivation for doing this project was primarily an urge to find easily accessible data. We thought public data published in Government websites would be a great place to find a massive amount of data with ease. We found on the Centre d’Estudis d’Opinió website a survey from 2020 on the political context in Catalonia. In this survey there are more than 50 questions about very different topics to contextualize the Catalan voter. These questions range from socioeconomical issues to ideology and national identity, so we thought having that amount of material would be a good way to start working on our data analysis project, because we could select whatever issues we found more interesting to draw our conclusions.
+ 
+In newspapers we often find articles that analyze this sort of surveys, so now we had the opportunity to analyze the data ourselves with our own tools.
+ 
+What we wanted to do with this data was to classify the surveyed in groups according to their answers. We had multiple questions that we wanted to find, but mainly we had three associations that we wanted to draw conclusions from: the relation between their ideology and voting party, voter participation and concern about the issues raised in the survey and opinion on the independence of Catalonia and national identity.
+
+
+# Data source presentation
+
+Data collection process
+Our data comes from CEO (Centre d’Estudis d'Opinió). To get the data it’s enough to access the two links above. In the first one you will find the data itself, after downloading the file "microdades_anonimitzades.csv", This data can be processed directly in RStudio without any additional steps. In the second one you will find the questionnaire from which the data have been obtained in pdf format.
+
+We could have enlarged our database with older data (also from CEO)  if we wanted to know how opinion has changed, but we decided against it as it isn’t our main objective.
+
+
+What are the data about
+The data responds to information about surveys conducted by the Centre d’Estudis d’Opinió to people residing in Catalonia. The aim is to extract specific information on the current opinion about the political, economic and social situation in Catalonia, as well as the attitude towards politics and electoral behavior.
+ 
+A sample of 1200 respondents is provided, of which we have information on socio-economic and demographic data. These respondents were selected proportionally to be from the 4 provinces of Catalonia and from municipalities with different amounts of population and other different characteristics.
+
+
+# Formal description of Data structure and metadata
+
+ 
+```{r setup, include=FALSE, echo=FALSE}
+### Load documents
+knitr::opts_chunk$set(echo = FALSE, warning = FALSE, fig.align = "center")
+rm(list = ls())
+  
+# Load Required Packages: to be increased over the course
+options(contrasts=c("contr.treatment","contr.treatment"))
+
+requiredPackages <- c("gt", "Hmisc", "tidyverse", "knitr", "kableExtra", "tinytex", "missMDA")
+
+#use this function to check if each package is on the local machine
+#if a package is installed, it will be loaded
+#if any are not, the missing package(s) will be installed and loaded
+package.check <- lapply(requiredPackages, FUN = function(x) {
+  if (!require(x, character.only = TRUE)) {
+    install.packages(x, dependencies = TRUE)
+    library(x, character.only = TRUE)
+  }
+})
+#verify they are loaded
+search()
+
+names(Paths) = c("Usuario",
+                 "alexandre.comas",
+                 "PC-312",
+                 "Raul",
+                 ,
+                 "Joan")
+
+setwd(Paths[Sys.info()[7]])
+
+showCode <- FALSE
+
+```
+
+
+
+```{r setupDatabses, include=FALSE, echo=showCode}
+ddOriginal<- read.csv("DB_Context_politic_2021.csv", sep=";", dec=",", encoding = "UTF-8", na.strings=c("NA"))
+ddMeaningProcedure <- read.csv("meaning-procedure.csv", sep=",", dec=",", encoding = "UTF-8", na.strings=c("NA"))
+```
+
+# Complete Data Mining process performed
+
+We started the process by getting the data from the Centre d’Estudis d’Opinió website. We downloaded a .csv file containing all the data from a 2021 survey on the political context in Catalonia. 
+The first step after downloading the data, was to select the variables that we found more relevant and take out the columns from our matrix that were not important to our analysis. Every question of the survey was a variable, so we had to take a look at each one of them to see if they were useful for us.
+The second step, once we had selected the data we wanted to tread, was the preprocessing process. This was the most tedious part of the procedure, because we had a lot of variables and lots of them had missing values or the factors of the categorical variables were very long and difficult to read in our database. Each variable that had missing values was different to tread. We started with the categorical ones, which every one of them were very different. Mainly we grouped all the ambiguous responses into one group called unknown, although this is not always the case because some “None of the above” responses were needed to take into account. This is shown in detail in the preprocessing section.
+Then we started treating the numerical variables. We had problems when applying the knn algorithm to our data using RStudio so, since we didn’t have a lot of missings in these types of variables, we decided to use the function imputePCA. This function is normally used to prepare the data to perform the PCA process. Since this function worked and we had the approval of our professor, we decided to use it over knn which we had problems to execute.
+Having treated all the missing values, we decided to abbreviate some of the factors of our variables (categorical) because they were too long. Some of the questions of the survey had answers with long sentences, so we replaced them with one or two words instead so they would be easily readable in our database and, later on, in our graphs in the profiling section. Also, we decided to put an acronym of the corresponding variable before each factor of the database selected, because there were lots of answers to different questions that were yes, no, unknown, etc., so with that “prefix”, the factors were more identifiable.
+When our data was clean, the next step was to start finding patterns. This was done in the clustering and PCA processes. On the first one, we created our dendrogram to find out how many clusters we had. We found out there were 4 groups, so during the profiling we contextualised and described each one of them, taking a selection of most relevant variables for our conclusions. Both procedures and their conclusions are explained in detail in the final sections of the project.
+
+![](workflow1.png)
+
+
+# Preprocessing
+
+Here we choose the variables with which we want to do the data analysis. We sort them by their numeric or qualitative nature.
+
+```{r preprocessingStart, echo=showCode}
+
+dataset<-"context polític"
+
+colNames <- colnames(ddOriginal)
+
+vars <- c(15,16, 17, 18, 24, 25, 26, 27, 28, 36:45, 63:67, 72, 74:107)
+colNames <- colNames[vars]
+numVars <- c(6,21,22, 28, 45:49)
+catVars <- (1:length(colNames))[!((1:length(colNames)) %in% numVars)]
+numVarsNames <- colNames[numVars]; #numVarsNames
+catVarsNames <- colNames[catVars]; #catVarsNames
+
+catVars <- NULL
+numVars <- NULL
+
+dd <- ddOriginal[vars]
+```
+
+In the input file we have imputed some missing values in select columns from values in the same column name plus **_LITERAL**, like for example: in the columns that refer to the vote in the *Congreso de los Diputados*, "PSOE" turns into "PSC", as we understand that that person wanted to vote for the Socialist Party, but when answering didn't take into account that, because of the nature of the Spanish electoral system, the "PSC" is the one that is voted for in Catalonia. 
+
+Then, we delete every  **_LITERAL** column.
+
+```{r echo=showCode}
+
+varsLiterals <- c("REC_PARLAMENT_VOT_ANTERIORS_LITERALS" , "REC_PARLAMENT_VOT_LITERALS", "REC_PARLAMENT_LITERALS", "INT_PARLAMENT_VOT_LITERALS" , "INT_CONGRES_VOT_LITERALS", "REC_CONGRES_VOT_LITERALS")
+
+dd[,varsLiterals] <- NULL
+colNames <- colNames[!colNames %in% varsLiterals]
+catVarsNames <- catVarsNames[!catVarsNames %in% varsLiterals]
+
+```
+
+We replace the blank values with "NP" ("No Preguntat"), which will mean that the question wasn't even asked, probably because of previous answers, and that's why there's no answer. 
+
+```{r binary,  echo=showCode}
+v <- c(5, 23, 25, 34:44)
+binaryVars <- colNames[v]
+
+whichAllNP <- function(df) {
+  return <- NULL
+  for(row in 1:nrow(df)){
+    if(length(unique(as.list(df[row,]))) == 1 && df[row,1] == " ") return <- append(return, row)
+  }
+  return
+}
+
+for(col in binaryVars){
+  newCol <- as.character(dd[,col])
+  newCol[which(newCol == " ")] <- "NP"
+  newCol <- factor(newCol)
+  dd[,col] <- newCol
+}
+
+#summary(dd[,binaryVars])
+
+```
+
+In this chunk of code we calculate the percentage of missing values in each column and then in all the dataset:
+
+
+```{r NApreprocessing, echo=showCode}
+#We count NA's and factor categorical variables.
+noContaComNAs <- c(
+"REC_PARLAMENT_VOT",
+"REC_PARLAMENT_CANDIDAT",
+"REC_PARLAMENT_FERMESA",
+"REC_PARLAMENT_PARTIT",
+"REC_PARLAMENT_INTERESSOS",
+"REC_PARLAMENT_IDEES",
+"REC_PARLAMENT_ACTUACIO",
+"REC_PARLAMENT_ACTUACIO_2",
+"REC_PARLAMENT_EVITAR",
+"REC_PARLAMENT_ALTRES",
+"REC_PARLAMENT_CAP",
+"REC_PARLAMENT_NA",
+"POST_PARLAMENT_DECISIO_RELACIO",
+"POST_PARLAMENT_DECISIO_CRISI",
+"POST_PARLAMENT_DECISIO_CORRUPCIO",
+"POST_PARLAMENT_DECISIO_CANVI_CLIMATIC",
+"POST_PARLAMENT_DECISIO_COVID",
+"INT_CONGRES_VOT",
+"REC_CONGRES_VOT")
+
+
+## Script per a calcular els missing values
+
+NAs <- NULL
+percPerVar <- NULL
+for(col in colnames(dd)){
+  if(!(col %in% noContaComNAs)) dd[which(dd[,col] == "" | dd[,col] == " "), col] <- NA
+  dd[which(dd[,col] == "No contesta"), col] <- NA
+  dd[which(dd[,col] == "No ho sap"), col] <- NA
+  dd[which(dd[,col] == "Cap de les anteriors"), col] <- NA
+  dd[which(dd[,col] == "Una altra"), col] <- NA
+  if (col %in% catVarsNames) dd[col] <- factor(dd[,col])
+  NAs[col] <- sum(is.na(dd[col]))
+  percPerVar[col] <- NAs[col]/nrow(dd) * 100
+}
+
+# Apartat f
+#NAs <- NAs[NAs != 0]
+print("Percentage of missing values by variable > 0:")
+percPerVar <- percPerVar[percPerVar != 0]; percPerVar
+# Apartat g
+g <- sum(NAs)/(nrow(dd)*length(colNames)) *100
+
+
+NAsDF <- data.frame(keyName=names(NAs), value=NAs, row.names=NULL)
+percPerVarDF <- data.frame(keyName=names(percPerVar), value=percPerVar, row.names=NULL)
+
+#Tots els individus que tenen un NS/NC o que tenen totes les columnes com a No passen a ser Sí a una nova columna NA. Eliminem les columnes de NS/NC.
+
+whichAllNo <- function(df) {
+  return <- NULL
+  for(row in 1:nrow(df)){
+    if(length(unique(as.list(df[row,]))) == 1 && df[row,1] == "No") return <- append(return, row)
+  }
+  return
+}
+
+```
+
+The dataset has `r round(g,2)`% of missing values.
+
+For one of the multichoice questions, we join the "NS" and "NC" values into "NP", a new column while delelting the two latter ones.
+
+```{r NApreprocessing2, echo=showCode}
+
+dd$REC_PARLAMENT_NA <- NULL
+
+#summary(dd[,c("REC_PARLAMENT_NC","REC_PARLAMENT_NS")])
+
+dd[which(dd$REC_PARLAMENT_NC == "Sí" | dd$REC_PARLAMENT_NS == "Sí") , "REC_PARLAMENT_NA"] <- "Sí"
+dd[which(dd$REC_PARLAMENT_NC == "NP" & dd$REC_PARLAMENT_NS == "NP") , "REC_PARLAMENT_NA"] <- "NP"
+dd[which(dd$REC_PARLAMENT_NC == "No" & dd$REC_PARLAMENT_NS == "No") , "REC_PARLAMENT_NA"] <- "No"
+
+dd$REC_PARLAMENT_NA <- factor(dd$REC_PARLAMENT_NA)
+
+#summary(dd$REC_PARLAMENT_NA)
+
+dd$REC_PARLAMENT_NS <- NULL
+dd$REC_PARLAMENT_NC <- NULL
+
+colNames <- colnames(dd)
+catVarsNames <- catVarsNames[!catVarsNames %in% c("REC_PARLAMENT_NC","REC_PARLAMENT_NS")]; catVarsNames <- append(catVarsNames, "REC_PARLAMENT_NA", after=34);
+
+```
+
+
+We need to parse the numeric variables, because the survey interviewers sometimes wrote more than the numeric value of the score. However, the numeric value is always in the first two characters, so we'll parse those as numeric. 
+
+
+```{r numericParse, warning=FALSE, echo=showCode}
+
+numVarsToParse <- numVarsNames[-1]
+
+takeFirst2 <- function(x) as.numeric(substring(x, 1, 2))
+
+dd[,numVarsToParse] <- data.frame(lapply(dd[,numVarsToParse], takeFirst2))
+
+```
+
+Once everything else is treated, we'll convert again the blank spaces into "NP" and the *NA* to "Desconegut" or Uknown.
+
+```{r NPDesconegut, warning=FALSE, echo=showCode}
+#Transformem tots els valors buits a "NP", perquè hem comprovat que només es posen quan la pregunta no s'ha fet perquè no és aplicable.
+
+for(col in catVarsNames){
+  newCol <- as.character(dd[,col])
+  
+  newCol[newCol == " "] <- "NP"
+  dd[,col] <- factor(newCol)
+}
+
+for(col in catVarsNames){
+  newCol <- as.character(dd[,col])
+  
+  newCol[is.na(newCol)] <- "Desconegut"
+  dd[,col] <- factor(newCol)
+}
+
+
+#Change the values NA for NP, because the NA is because the interviewer didn't ask the question for the anwser of a previous answer.
+#We use the pipes method with mutate.
+dd <- dd %>%
+  #If they didn't vote, they did'nt have a decision for going vote.
+  mutate(REC_PARLAMENT_VOT_DECISIO = case_when(PART_PARLAMENT == 'Estic segur que vaig votar' ~ as.character(REC_PARLAMENT_VOT_DECISIO), TRUE ~'NP'))%>% 
+  
+  
+  mutate(REC_PARLAMENT_VOT = case_when(PART_PARLAMENT == 'Estic segur que vaig votar' ~ as.character(REC_PARLAMENT_VOT), TRUE ~ 'NP'))%>%
+  
+  
+  mutate(REC_PARLAMENT_FERMESA = case_when(REC_PARLAMENT_VOT == 'NP' ~ 'NP', REC_PARLAMENT_VOT == 'Nul' ~ 'NP', REC_PARLAMENT_VOT == 'Vaig pensar en anar però no ho vaig fer' ~ 'NP', REC_PARLAMENT_VOT == 'Habitualment voto però aquesta vegada no' ~ 'NP', REC_PARLAMENT_VOT == 'Desconegut' ~ 'NP', REC_PARLAMENT_VOT == 'En blanc' ~ 'NP', TRUE ~ as.character(REC_PARLAMENT_FERMESA)))%>%
+  
+  mutate(REC_PARLAMENT_CANDIDAT = case_when(REC_PARLAMENT_VOT == 'NP' ~ 'NP', REC_PARLAMENT_VOT == 'Nul' ~ 'NP', REC_PARLAMENT_VOT == 'Vaig pensar en anar però no ho vaig fer' ~ 'NP', REC_PARLAMENT_VOT == 'Habitualment voto però aquesta vegada no' ~ 'NP', REC_PARLAMENT_VOT == 'Desconegut' ~ 'NP', TRUE ~ as.character(REC_PARLAMENT_CANDIDAT)))%>%
+  
+  mutate(REC_PARLAMENT_PARTIT = case_when(REC_PARLAMENT_VOT == 'NP' ~ 'NP', REC_PARLAMENT_VOT == 'Nul' ~ 'NP', REC_PARLAMENT_VOT == 'Vaig pensar en anar però no ho vaig fer' ~ 'NP', REC_PARLAMENT_VOT == 'Habitualment voto però aquesta vegada no' ~ 'NP', REC_PARLAMENT_VOT == 'Desconegut' ~ 'NP', REC_PARLAMENT_VOT == 'En blanc' ~ 'NP', TRUE ~ as.character(REC_PARLAMENT_PARTIT)))%>%
+  
+  mutate(REC_PARLAMENT_INTERESSOS = case_when(REC_PARLAMENT_VOT == 'NP' ~ 'NP', REC_PARLAMENT_VOT == 'Nul' ~ 'NP', REC_PARLAMENT_VOT == 'Vaig pensar en anar però no ho vaig fer' ~ 'NP', REC_PARLAMENT_VOT == 'Habitualment voto però aquesta vegada no' ~ 'NP', REC_PARLAMENT_VOT == 'Desconegut' ~ 'NP', REC_PARLAMENT_VOT == 'En blanc' ~ 'NP', TRUE ~ as.character(REC_PARLAMENT_INTERESSOS)))%>%
+  
+  mutate(REC_PARLAMENT_IDEES = case_when(REC_PARLAMENT_VOT == 'NP' ~ 'NP', REC_PARLAMENT_VOT == 'Nul' ~ 'NP', REC_PARLAMENT_VOT == 'Vaig pensar en anar però no ho vaig fer' ~ 'NP', REC_PARLAMENT_VOT == 'Habitualment voto però aquesta vegada no' ~ 'NP', REC_PARLAMENT_VOT == 'Desconegut' ~ 'NP', REC_PARLAMENT_VOT == 'En blanc' ~ 'NP', TRUE ~ as.character(REC_PARLAMENT_IDEES)))%>%
+  
+  mutate(REC_PARLAMENT_ACTUACIO = case_when(REC_PARLAMENT_VOT == 'NP' ~ 'NP', REC_PARLAMENT_VOT == 'Nul' ~ 'NP', REC_PARLAMENT_VOT == 'Vaig pensar en anar però no ho vaig fer' ~ 'NP', REC_PARLAMENT_VOT == 'Habitualment voto però aquesta vegada no' ~ 'NP', REC_PARLAMENT_VOT == 'Desconegut' ~ 'NP', REC_PARLAMENT_VOT == 'En blanc' ~ 'NP', TRUE ~ as.character(REC_PARLAMENT_ACTUACIO)))%>%
+  
+  mutate(REC_PARLAMENT_ACTUACIO_2 = case_when(REC_PARLAMENT_VOT == 'NP' ~ 'NP', REC_PARLAMENT_VOT == 'Nul' ~ 'NP', REC_PARLAMENT_VOT == 'Vaig pensar en anar però no ho vaig fer' ~ 'NP', REC_PARLAMENT_VOT == 'Habitualment voto però aquesta vegada no' ~ 'NP', REC_PARLAMENT_VOT == 'Desconegut' ~ 'NP', REC_PARLAMENT_VOT == 'En blanc' ~ 'NP', TRUE ~ as.character(REC_PARLAMENT_ACTUACIO_2)))%>%
+  
+  mutate(REC_PARLAMENT_EVITAR = case_when(REC_PARLAMENT_VOT == 'NP' ~ 'NP', REC_PARLAMENT_VOT == 'Nul' ~ 'NP', REC_PARLAMENT_VOT == 'Vaig pensar en anar però no ho vaig fer' ~ 'NP', REC_PARLAMENT_VOT == 'Habitualment voto però aquesta vegada no' ~ 'NP', REC_PARLAMENT_VOT == 'Desconegut' ~ 'NP', REC_PARLAMENT_VOT == 'En blanc' ~ 'NP', TRUE ~ as.character(REC_PARLAMENT_EVITAR)))%>%
+  
+  mutate(REC_PARLAMENT_ALTRES = case_when(REC_PARLAMENT_VOT == 'NP' ~ 'NP', REC_PARLAMENT_VOT == 'Nul' ~ 'NP', REC_PARLAMENT_VOT == 'Vaig pensar en anar però no ho vaig fer' ~ 'NP', REC_PARLAMENT_VOT == 'Habitualment voto però aquesta vegada no' ~ 'NP', REC_PARLAMENT_VOT == 'Desconegut' ~ 'NP', REC_PARLAMENT_VOT == 'En blanc' ~ 'NP', TRUE ~ as.character(REC_PARLAMENT_ALTRES)))%>%
+  
+  mutate(REC_PARLAMENT_CAP = case_when(REC_PARLAMENT_VOT == 'NP' ~ 'NP', REC_PARLAMENT_VOT == 'Nul' ~ 'NP', REC_PARLAMENT_VOT == 'Vaig pensar en anar però no ho vaig fer' ~ 'NP', REC_PARLAMENT_VOT == 'Habitualment voto però aquesta vegada no' ~ 'NP', REC_PARLAMENT_VOT == 'Desconegut' ~ 'NP', REC_PARLAMENT_VOT == 'En blanc' ~ 'NP', TRUE ~ as.character(REC_PARLAMENT_CAP)))%>%
+  
+  mutate(REC_PARLAMENT_NA = case_when(REC_PARLAMENT_VOT == 'NP' ~ 'NP', REC_PARLAMENT_VOT == 'Nul' ~ 'NP', REC_PARLAMENT_VOT == 'Vaig pensar en anar però no ho vaig fer' ~ 'NP', REC_PARLAMENT_VOT == 'Habitualment voto però aquesta vegada no' ~ 'NP', REC_PARLAMENT_VOT == 'Desconegut' ~ 'NP', REC_PARLAMENT_VOT == 'En blanc' ~ 'NP', TRUE ~ as.character(REC_PARLAMENT_NA)))%>%
+  
+  mutate(REC_PARLAMENT_VOT_ANTERIORS = case_when(PART_PARLAMENT_ANTERIORS == 'No vaig votar perquè no podia (edat, malaltia...)' ~ 'NP', PART_PARLAMENT_ANTERIORS == 'No vaig votar' ~ 'NP', PART_PARLAMENT_ANTERIORS == 'Vaig pensar en anar però no ho vaig fer' ~ 'NP', PART_PARLAMENT_ANTERIORS == 'Habitualment voto però aquesta vegada no' ~ 'NP', PART_PARLAMENT_ANTERIORS == 'Desconegut' ~ 'NP', PART_PARLAMENT_ANTERIORS == 'Estic segur que vaig votar' ~ as.character(REC_PARLAMENT_VOT_ANTERIORS)))%>%
+  
+  mutate(REC_CONGRES_VOT = case_when(PART_CONGRES == 'Estic segur que vaig votar' ~ as.character(REC_CONGRES_VOT), TRUE ~'NP'))
+```
+
+Now we fix some of the categories in the columns referring to political parties which wasn't fixed directly in the dataset, especially for "Catalunya en Comú Podem" and its member parties.
+
+```{r, echo=showCode}
+
+for(col in catVarsNames){
+  dd[col] <- factor(dd[,col])
+}
+
+parlamentVotsVars <- c("REC_PARLAMENT_VOT_ANTERIORS", "REC_PARLAMENT_VOT", "INT_PARLAMENT_VOT")
+congresVotsVars <- c("INT_CONGRES_VOT", "REC_CONGRES_VOT")
+
+## Partits que es presenten a les eleccions del parlament de Catalunya
+subPartit <- c("Barcelona en Comú", "Podemos", "CDC")
+toSubPartit <- c("Catalunya en Comú Podem", "Catalunya en Comú Podem", "Junts per Catalunya")
+for(var in parlamentVotsVars){
+  for(i in 1:length(subPartit)){
+    dd[which(dd[,var] == subPartit[i]), var] <- toSubPartit[i]
+  }
+}
+
+## Partits que es presenten a les eleccions del parlament de Catalunya
+subPartit <- c("Barcelona en Comú", "Podemos", "ICV-EUiA", "En Comú Podem", "CDC")
+toSubPartit <- c("Catalunya en Comú Podem", "Catalunya en Comú Podem","Catalunya en Comú Podem", "Catalunya en Comú Podem", "Junts per Catalunya")
+for(var in congresVotsVars){
+  for(i in 1:length(subPartit)){
+    dd[which(dd[,var] == subPartit[i]), var] <- toSubPartit[i]
+  }
+}
+
+for(col in catVarsNames){
+  dd[col] <- factor(dd[,col])
+}
+
+```
+
+Next, we'll add a code representing the abbreviation of the variable name in each level of the categorical variables. This is because, later on, when we need to make a PCA and Profiling, we'll sometimes see the categories by themselves, and it'll be clearer and easier if we can immediately see which variable the categories belong to.
+
+```{r AbreviationPreProcessing, echo=showCode}
+for(col in catVarsNames){
+  dd[col] <- factor(dd[,col])
+}
+
+#We define the abbreviations of the columns.
+dd <- dd[, colNames]
+catVarsAbbrev <- c(
+  "PROV","HABI","MUNI",  "COMA",  "SEXE",  "EDG",  "EDCEO",  "LLOCN",  "SEC",  "SECR",  "SECP",  "SEE", "SEP", "SPC",  "SPCR",  "SPCP",  "SPE",  "CATESP", "IDEO", "MONREP", "SIGNESP", 
+  "ACTIND", "VDD",  "EI", "PP",  "RPVD",  "RPV", "RPF",  "RPC",  "RPP",  "RPIN",  "RPID", "RPA", "RPA2", "RPNA", "RPE",  "RPALT",  "RPCAP",
+  "IPV",  "PPA",  "RPVA",  "ICV",  "PC",  "RCV"
+)
+
+names(catVarsAbbrev) <- catVarsNames
+
+#Abreviacions factors
+
+levels(dd$HABITAT) <- c("10-150", "150-1000", "2-10", "50-150", "<2", ">1000")
+levels(dd$EDAT_CEO) <- c("15-19", "20-24", "25-29", "30-34", "35-39", "40-44", "45-49", "50-54", "55-59", "60-64", "65-69", "70-74", "75-79", "80-mes")
+levels(dd$LLOC_NAIX) <- c("Catalunya", "UE", "Altres_Comunitats", "Resta_mon")
+levels(dd$SIT_POL_CAT) <- c("B", "D", "MB", "MD", "NBND", "NoSap")
+levels(dd$SIT_POL_CAT_RETROSPECTIVA) <- c("Desconegut","Igual", "Millor", "Pitjor")
+levels(dd$SIT_POL_CAT_PROSPECTIVA) <- c("Desconegut","Empitjorarà", "Igual", "Millorarà")
+levels(dd$SIT_POL_ESP) <- c("B", "Desconegut", "D", "MB", "MD", "NBND")
+levels(dd$CAT_ESP) <- c("Cap_o_altra", "Desconegut", "Catala_a_Catalunya", "Catala_a_Espanya", "Espanyol_a_Catalunya", "Espanyol_a_Espanya")
+levels(dd$PART_CONGRES) <- c("Desconegut","Segur", "No_pero_habitualment_vota", "No_va_votar", "No_podia", "No_pero_va_pensar_en_votar")
+levels(dd$PART_PARLAMENT_ANTERIORS) <- c("Desconegut","Segur", "No_pero_habitualment_vota", "No_va_votar", "No_podia", "No_pero_va_pensar_en_votar")
+levels(dd$REC_PARLAMENT_VOT_DECISIO) <- c("Desconegut","Fa temps", "Inici campanya", "Darrera campanya", "Dia eleccions", "NP")
+levels(dd$PART_PARLAMENT) <- c("Desconegut","Segur", "No_pero_habitualment_vota", "No_va_votar", "No_podia", "No_pero_va_pensar_en_votar")
+levels(dd$PART_PARLAMENT_ANTERIORS) <- c("Desconegut","Segur", "No_pero_habitualment_vota", "No_va_votar", "No_podia", "No_pero_va_pensar_en_votar")
+levels(dd$SIGNIFICA_ESP) <- c("Desconegut", "Meu_Pais", "Soc_ciutada", "Estat_alie", "Diverses_nacionalitats_regions", "Em_sento_membre")
+
+#We redefine the factor levels with the abbreviation of the column at the start of the original levels.
+
+for(col in catVarsNames){
+  if (col %in% catVarsNames) levels(dd[,col]) <- paste(catVarsAbbrev[col], levels(dd[,col]), sep="-")
+}
+```
+
+Here we'll impute the missing values in the numeric variables. In the course it was meant to do it with the KNN method, but we couldn't manage it, so we've used the method *imputePCA*, which is based in Principal Component Analysis.
+
+```{r ImputePCA,  echo=FALSE}
+print("Before imputation: ")
+summary(dd[,numVarsNames])
+
+uncompleteVars<-c("SATISFACCIO_ELECCIONS_14F2021","POST_PARLAMENT_DECISIO_RELACIO","POST_PARLAMENT_DECISIO_CRISI","POST_PARLAMENT_DECISIO_CANVI_CLIMATIC","POST_PARLAMENT_DECISIO_RELACIO", "POST_PARLAMENT_DECISIO_COVID","POST_PARLAMENT_DECISIO_CORRUPCIO", "CAT_0_10", "ESP_0_10")
+#better if you sort them by increasing number of missing values
+
+fullVariables<-numVarsNames[!numVarsNames %in% uncompleteVars]
+
+res.impca<-imputePCA(dd[,numVarsNames],ncp=6)
+ddImpca <- data.frame(res.impca$completeObs)
+print("After imputation: ")
+summary(ddImpca)
+```
+
+Once we've imputed, we check that there isn't any strange imputation and that the quantiles don't change too much. As we can see, it isn't the case, so we accept the imputation and the preprocessing as a whole.
+
+```{r include=FALSE}
+
+dd[,numVarsNames] <- ddImpca
+
+save.image("DatosPreprocessed.RData")
+
+```
+
+
+# Univariate Descriptive Analysis of our data
+
+```{r, echo=showCode, fig.height = 4, fig.width = 8, fig.align = "center", results = "asis"}
+
+
+listOfColors<-rainbow(39)
+
+possiblemissingCode <- c("-NA","-NP", "-Desconegut", "-Altres")
+
+
+UnivNamesCat <-c("Modality","Nº Ocurrences", "% Ocurrences")
+
+for (variable in colNames) {
+  dvar <- dd[variable][,1]
+  #datos de metadata
+    #nombre de varible
+    #Modalidades
+    #Meaning
+    #Type
+    #Missing code
+    #Missing %
+    #Measuring Procedure
+    #Range
+  
+  
+  #assign type to variable
+  type <- "categorical" 
+  if(is.element(variable, binaryVars)){
+    type<-"binary"
+  } else {
+    if(is.element(variable, numVarsNames)){
+      type<-"numerical"
+    } 
+  }
+  
+  #Univariate
+  # binary & categorical
+  #Grafico histograma
+  #frequency table sorted
+  # numerical
+  #Grafico histograma
+  #min avg mean max , summary?
+  
+  #generate Univariate
+  if(type=="numerical" || variable=="POST_PARLAMENT_DECISIO_RELACIO"){
+    brk <- seq(from = 0, to = 10, by = 1)
+    if(variable=="EDAT")
+      brk <- seq(from = 17, to = 95, by = 5)
+    dens <- density(dvar)
+    hist(dvar, breaks = brk, main = paste("Density of ", variable),
+         freq = FALSE)
+    lines(dens)
+     tmp <- summary(dvar)
+     dt<- data.frame(
+       "variable" = c(variable),
+       "Min." = c(tmp[1]),
+       "1st Qu." = c(tmp[2]),
+       "Median" = c(tmp[3]),
+       "Mean" = c(tmp[4]),
+       "3rd Qu." = c(tmp[5]),
+       "Max." = c(tmp[6]))
+     print(kable(dt, "latex", booktabs = TRUE, caption = "Summary of the Variable ") %>%
+      kable_styling(latex_options="scale_down")%>%
+  kable_styling(latex_options = "HOLD_position") )
+        
+  } else {
+    
+    frecs<-table(as.factor(dvar), useNA="ifany")
+    proportions<-frecs/length(dvar)
+    
+    barplot(
+      frecs,
+      las=3,
+      cex.names=0.7,
+      main=paste("Barplot of", variable),
+      col=listOfColors)
+     
+     modalities <- levels(dvar)
+     initDT <- TRUE
+     
+     dt <- data.frame(frecs, proportions)
+      names(dt) <- c("Modalities", "Frequency", "", "Proportion")
+
+    
+    print(kable(dt%>% select(1, 2, 4), "latex", booktabs = TRUE, caption = "Information about modalities of the Variable ") %>%
+  kable_styling(latex_options = "HOLD_position") )
+  }
+  
+  
+}
+```
+
+
+
+\newpage
+\blandscape
+# Metadata
+
+
+```{r MetaData, echo=FALSE}
+listOfColors<-rainbow(39)
+
+metaDataTitlesCat_Bin= c('Variable_Name',
+                   'Type',
+                   'Modalities',
+                   'Missing_Code',
+                   'Missing_Percent',
+                   'Meaning & Collection_Method'
+                   )
+
+metaDataTitlesNum= c('Variable_Name',
+                   'Type',
+                   'Range',
+                   'Units',
+                   'Missing_Code',
+                   'Missing_Percent',
+                   'Meaning',
+                   'Collection_Method'
+) 
+
+
+
+initN<- FALSE
+initCB<-FALSE
+
+possiblemissingCode <- c("-NA","-NP", "-Desconegut", "-Altres")
+
+
+
+
+for (variable in colNames) {
+  dvar <- dd[variable][,1]
+  #datos de metadata
+    #nombre de varible
+    #Modalidades
+    #Meaning
+    #Type
+    #Missing code
+    #Missing %
+    #Measuring Procedure
+    #Range
+  maxcellspace <- 1
+  
+  
+  #assign type to variable
+  type <- "categorical" 
+  if(is.element(variable, binaryVars)){
+    type<-"binary"
+  } else {
+    if(is.element(variable, numVarsNames)){
+      type<-"numerical"
+    } 
+  }
+  
+  #select - missing code & modalities
+  missingcode<-""
+  missingPerc<-0
+  modalities <- ""
+  
+  
+  Found <- which(ddMeaningProcedure$Variable == variable, arr.ind = TRUE)
+  meaning <- ddMeaningProcedure$Meaning[Found]
+  procedure <- ddMeaningProcedure$Procedure[Found]
+  meaning
+  procedure
+  
+  if(type != "numerical"){
+    
+    entries <- levels(dvar)
+    modalities <- entries
+    maxcellspace <- max(maxcellspace, length(entries))
+    
+    
+    #looks for the Missing code
+    for(entry in entries){
+      for(pmc in possiblemissingCode){
+        
+        if(grepl( pmc, entry, fixed = TRUE)){
+          #foundMissingEntry
+          missingcode<- entry
+          tmp<-length(which(dvar==entry))/length(dvar)
+          missingPerc<-sprintf(tmp, fmt = '%#.2f')
+          break
+        }
+      }
+    }
+  }
+  
+  #select Range
+  range<-"{range-none}"
+  if(type == "numerical"){
+    range <- sprintf("[ %d, %d ]",min(dvar), max(dvar))
+  }
+  
+  #individual table
+  
+  #Table of all
+  
+  
+  #Univariate
+  # binary & categorical
+  #Grafico histograma
+  #frequency table sorted
+  # numerical
+  #Grafico scatter
+  #min avg mean max , summary?
+  
+  
+  #generate metadata
+  if(type=="numerical"){
+    units <- ""
+    if(variable=="EDAT") units <- "years"
+    
+        if(!initN){ #first Numerical
+          initN <- TRUE
+          metadataDFnum<- data.frame(variable,type,range,units,missingcode,missingPerc,meaning,procedure)
+          names(metadataDFnum) <- metaDataTitlesNum
+        } else{
+          tempDF <- data.frame(variable,type,range,units,missingcode,missingPerc,meaning,procedure)
+          names(tempDF) <- metaDataTitlesNum
+          metadataDFnum <- rbind(metadataDFnum, tempDF)
+        }
+    
+
+  } else {
+    modalities <- sort(modalities, decreasing=FALSE)
+    if(!initCB){ #first Categorical
+          
+          initCB <- TRUE
+          metadataDFbinCat<- data.frame(variable,type,"",missingcode,missingPerc,meaning)
+          names(metadataDFbinCat) <- metaDataTitlesCat_Bin
+          second<-TRUE
+           for(mod in modalities){
+             if(second){
+               second<-FALSE
+               tempDF <- data.frame("","",mod,"","",procedure)
+             }
+             else tempDF <- data.frame("","",mod,"","","")
+             names(tempDF) <- metaDataTitlesCat_Bin
+             metadataDFbinCat <- rbind(metadataDFbinCat, tempDF)
+           }
+          
+          
+        } else{
+          tempDF <- data.frame(variable,type,"",missingcode,missingPerc,meaning)
+          names(tempDF) <- metaDataTitlesCat_Bin
+          metadataDFbinCat <- rbind(metadataDFbinCat, tempDF)
+          second<-TRUE
+           for(mod in modalities){
+             if(second){
+               second<-FALSE
+               tempDF <- data.frame("","",mod,"","",procedure)
+             }
+             else tempDF <- data.frame("","",mod,"","","")
+             names(tempDF) <- metaDataTitlesCat_Bin
+             metadataDFbinCat <- rbind(metadataDFbinCat, tempDF)
+           }
+        }
+    
+        
+    }
+  
+}
+
+
+
+```
+
+## Numerical Variable Metadata
+
+```{r PrintMetadata, echo=FALSE}
+# R program to illustrate
+# data frame from vector
+dt <- metadataDFnum
+kable(dt, "latex", booktabs = FALSE, caption = "Metadata Numerical Variables") %>%
+  kable_styling(latex_options = c("hold_position", "scale_down"))
+
+```
+\newpage
+## Categorical Variables Metadata
+
+```{r PrintMetadata2, echo=FALSE}
+dt <- metadataDFbinCat
+kable(dt, "latex", booktabs = TRUE, longtable = TRUE, caption = "Metadata Categorical Variables") %>%
+  kable_styling(latex_options = c("hold_position", "repeat_header")) %>%
+  kable_styling(font_size = 6)%>%
+  column_spec(c(3,6), width = "4.8cm")%>%
+  column_spec(c(1), width = "3.2cm")%>%
+  column_spec(c(2,5), width = "1.7cm")%>%
+  column_spec(c(4,5), width = "2.5cm")
+
+  
+```
+\elandscape
+\newpage
+
+
+# PCA
+
+In this section we're going to execute a PCA and select and analyze only one factorial map, because we have a lot of categorical variables in this dataset and we're going to analyze quite a bit of them. That's because, when we tried to plot fewer variables in multiple factorial maps, the extra information that they gave was very little. Then, we decided to focus on more variables in the best factorial map we could find.
+
+We start the process by getting the numeric variables of the dataframe.
+
+
+
+We execute the PCA function.
+
+```{r}
+attach(dd)
+numeriques<-which(sapply(dd,is.numeric))
+dcon<-dd[,numeriques]
+pc1 <- prcomp(dcon, scale=TRUE)
+```
+
+## Subspace Inertia
+
+We graph the inertia represented by each dimension of the PCA, ordered decreasingly.
+
+```{r}
+
+# WHICH PERCENTAGE OF THE TOTAL INERTIA IS REPRESENTED IN SUBSPACES?
+inerProj<- pc1$sdev^2; #inerProj
+totalIner<- sum(inerProj); #totalIner
+pinerEix<- 100*inerProj/totalIner; #pinerEix
+
+round2 <- function(x){
+  paste(round(x,2) , "%", sep="")
+}
+
+barplot(pinerEix, names.arg = 1:length(pinerEix), main = "Subspace Representated Inertia", xlab = "Dimensions", ylab = "% of inertia represented"); 
+text(seq(0.75, 0.75+(dim(dcon)[2]-1)*1.2, 1.2), 1.5,  sapply(pinerEix, round2), cex=0.65, pos=3,col="darkblue") 
+
+```
+
+We now graph the cummulated inertia.
+
+```{r}
+#Cummulated Inertia in subspaces, from first principal component to the 11th dimension subspace
+percInerAccum<-100*cumsum(pc1$sdev[1:dim(dcon)[2]]^2)/dim(dcon)[2]
+barplot(percInerAccum, names.arg = 1:length(percInerAccum), main = "Subspace Cummulated Representated Inertia", xlab = "Dimensions", ylab = "% of inertia represented")
+text(seq(0.75, 0.75+(dim(dcon)[2]-1)*1.2, 1.2), 1.5,  sapply(percInerAccum, round2), cex=0.65, pos=3,col="darkblue") 
+
+```
+
+Now we select the number of dimensions we want to keep when getting information from the PCA. The criteria we'll use is to keep the number of dimensions which represent at least 80% of the total inertia.
+
+```{r}
+
+# SELECTION OF THE SINGIFICNT DIMENSIONS (keep 80% of total inertia)
+
+nd = 5
+
+Psi = pc1$x[,1:nd]
+
+# STORAGE OF LABELS FOR INDIVIDUALS AND VARIABLES
+
+iden = row.names(dcon)
+etiq = names(dcon)
+ze = rep(0,length(etiq)) # WE WILL NEED THIS VECTOR AFTERWARDS FOR THE GRAPHICS
+
+```
+
+We'll take `r nd`, which represents `r round(percInerAccum[nd],2)`% of the total inertia. 
+
+### Choosing subspace
+
+To choose which subspace we're gonna use, we'll plot the individuals in each possible subspace from the components we kept. 
+
+```{r, fig.height =16, fig.width = 12, fig.align = "center" }
+
+# PLOT OF INDIVIDUALS
+old.par <- par(mfrow=c(2, 1))
+#select your axis
+posComb <- as.data.frame(expand.grid(1:nd, 1:nd))
+for(ipair in 1:nrow(posComb)){
+  pair <- posComb[ipair,]
+  if(pair[1] < pair[2]){
+    eje1 <- pair[1,1]
+    eje2 <- pair[1,2]
+    
+    plot(Psi[,eje1],Psi[,eje2], main = paste("Individuals plotted (X: ", eje1, " , Y: ", eje2, ")", sep="") , xlab = paste("Dim", eje1), ylab = paste("Dim", eje2))
+    #text(Psi[,eje1],Psi[,eje2],labels=iden, cex=0.5)
+    axis(side=1, pos= 0, labels = F, col="red")
+    axis(side=3, pos= 0, labels = F, col="red")
+    axis(side=2, pos= 0, labels = F, col="red")
+    axis(side=4, pos= 0, labels = F, col="red")
+  }
+}
+
+#plot3d(Psi[,1],Psi[,2],Psi[,4])
+par(old.par)
+```
+
+By these different plots, we can see that some have distributions too close to the center, which means that they represent smaller variability. Taking in to account the ammount of inertia each dimension represents, we are left with 2 possible subspaces: (1,2) and (1,3), with the former representing a slightly more inertia. 
+
+```{r, fig.height = 16, fig.width = 12, fig.align = "center" }
+old.par <- par(mfrow=c(2, 1))
+pointSize <- function(var){
+  4*summary(var)/max(summary(var))+0.5
+}
+
+#Projection of variables
+
+Phi = cor(dcon,Psi)
+
+possiblePairs <- list()
+possiblePairs[[1]] <- c(1,2) 
+possiblePairs[[2]] <- c(1,3)
+xlim <- c(1.5, 1.5)
+ylim <- c(2, 1.5)
+
+#select your axis
+for(i in 1:2){
+  pair <- possiblePairs[[i]]
+  eje1 <- pair[1]
+  eje2 <- pair[2]
+  
+  X<-Phi[,eje1]
+  Y<-Phi[,eje2]
+  
+  #Plot variables
+  {
+    plot(Psi[,eje1],Psi[,eje2],type="n",xlim=c(min(X,0),max(X+0.25,0)), ylim=c(-1,1), xlab = paste("Dim", eje1), ylab = paste("Dim", eje2), main = paste("Projection of numeric variables in X: ", eje1, ", Y: ", eje2, sep = "") )
+    axis(side=1, pos= 0, labels = F)
+    axis(side=3, pos= 0, labels = F)
+    axis(side=2, pos= 0, labels = F)
+    axis(side=4, pos= 0, labels = F)
+    arrows(ze, ze, X, Y, length = 0.07,col="blue")
+    text(X,Y,labels=etiq,col="darkblue", cex=0.7)
+  }
+  
+  #Now we project both cdgs of levels of a selected qualitative variable without
+#representing the individual anymore
+{
+  #variablesToPlot <- c("CAT_ESP", "REC_PARLAMENT_VOT", "VOT_DRET_DEURE", "IDEOL_1_7")
+  variablesToPlot <- c("SEXE", "CAT_ESP", "IDEOL_1_7", "REC_PARLAMENT_VOT")
+  
+  plot(Psi[,eje1],Psi[,eje2],type="n", xlim=c(-xlim[i],xlim[i]), ylim=c(-ylim[i],ylim[i]),  xlab = paste("Dim", eje1), ylab = paste("Dim", eje2), main = paste("Projection of categories in X: ", eje1, ", Y: ", eje2, " \n (", paste(variablesToPlot, collapse=", "),")", sep=""))
+  axis(side=1, pos= 0, labels = F, col="cyan")
+  axis(side=3, pos= 0, labels = F, col="cyan")
+  axis(side=2, pos= 0, labels = F, col="cyan")
+  axis(side=4, pos= 0, labels = F, col="cyan")
+  # Plot numeric variables vectors
+  #arrows(ze, ze, X, Y, length = 0.07,col="blue")
+  #text(X,Y,labels=etiq,col="darkblue", cex=0.7)
+  
+  pointColors <- c("red", "green", "black", "purple")
+  textColors <- c("orange", "lightgreen", "grey", "pink")
+  
+  # Plot categorical variables centroids
+  for(i in 1:length(variablesToPlot)){
+    varcat <- dd[,variablesToPlot[i]]
+    fdic1 = tapply(Psi[,eje1],varcat,mean)
+    fdic2 = tapply(Psi[,eje2],varcat,mean)
+    #points(fdic1,fdic2,pch=21, bg="#F0F0F0" ,col=pointColors[i], labels=levels(varcat), cex=pointSize(varcat))
+    points(fdic1,fdic2,pch=21, lwd = 2 ,col=pointColors[i], labels=levels(varcat), cex=pointSize(varcat))
+    text(fdic1,fdic2+0.03,labels=levels(varcat),col=textColors[i], cex=0.8,lwd=2)
+  }
+}
+}
+par(old.par)
+```
+
+We select the subspace formed by axis 1 and axis 2 to analyze further because we can see that the vectors representing the variables are further apart from each other, which means that the axis 2 represents a larger amount of variability, and they are longer, which means that the contribution is also higher.
+
+We have also plotted some categorical variables which we'll analyze to see if they are spread nicely and it seems to be that the choice we made is acceptable.
+
+
+## Factorial map visualization
+
+### Individual projection
+
+So, here we'll represent the required plots with the selected subspace:
+
+```{r, fig.height = 8, fig.width = 12, fig.align = "center" }
+# Individuals projection
+{
+  eje1 <- 1
+  eje2 <- 2
+  plot(Psi[,eje1],Psi[,eje2], main = "Individuals plotted", xlab = paste("Dim", eje1), ylab = paste("Dim", eje2))
+  axis(side=1, pos= 0, labels = F, col="red")
+  axis(side=3, pos= 0, labels = F, col="red")
+  axis(side=2, pos= 0, labels = F, col="red")
+}
+
+```
+
+
+
+### Numerical variables projection and interpretation
+
+The numerical values plotted in the chosen plane are the following:
+
+```{r, fig.height = 6, fig.width = 8, fig.align = "center" }
+# Numerical variables projection ¿¿Color code??
+{
+  eje1 <- 1
+  eje2 <- 2
+  
+  X<-Phi[,eje1]
+  Y<-Phi[,eje2]
+  
+  {
+    plot(Psi[,eje1],Psi[,eje2],type="n",xlim=c(min(X,0),max(X+0.25,0)), ylim=c(-1,1), xlab = paste("Dim", eje1), ylab = paste("Dim", eje2), main = "Projection of numeric variables")
+    axis(side=1, pos= 0, labels = F)
+    axis(side=3, pos= 0, labels = F)
+    axis(side=2, pos= 0, labels = F)
+    axis(side=4, pos= 0, labels = F)
+    arrows(ze, ze, X, Y, length = 0.07,col="blue")
+    text(X,Y,labels=etiq,col="darkblue", cex=0.7)
+  }
+}
+```
+
+Dimension 1 seems to be associated mainly with the scores that the interviewees gave to various decisions by the *Parlament*, which are also contributing a lot the the subspace. The rest of the variables are also represented in the first component, although not as much, especially age, which is considerably shorter than any other of variables.
+
+Dimension 2 is not as cut and dry, but basically represents the feelings towards Spanish or Catalan sentiment (which are inversely related) and the satisfaction from the elections for the "Parlament de Catalunya" of February 14th.
+
+### Qualitative variables projection and interpretation
+
+Once the axis are described with the numerical variables from which they were generated, we can analyze the categorical variables.
+
+```{r categoricalPlots, include = FALSE}
+# Categorical variables projection
+categoricalPlot <- function(list, eje1, eje2, xlim, ylim, plotNum, catCEX){
+  plot(Psi[,eje1],Psi[,eje2],type="n", xlim=c(-xlim, xlim), ylim=c(-ylim, ylim),  xlab = paste("Dim", eje1), ylab = paste("Dim", eje2), main = paste("Projection of categories \n (", paste(list, collapse=", "),")", sep=""))
+  axis(side=1, pos= 0, labels = F, col="cyan")
+  axis(side=3, pos= 0, labels = F, col="cyan")
+  axis(side=2, pos= 0, labels = F, col="cyan")
+  axis(side=4, pos= 0, labels = F, col="cyan")
+  # Plot numeric variables vectors
+  #arrows(ze, ze, X, Y, length = 0.07,col="blue")
+  #text(X,Y,labels=etiq,col="darkblue", cex=0.7)
+  
+  pointColors <- c("red", "green", "black", "purple")
+  textColors <- c("orange", "lightgreen", "grey", "pink")
+  
+  # Plot categorical variables centroids
+  for(i in 1:length(list)){
+    varcat <- dd[,list[i]]
+    fdic1 = tapply(Psi[,eje1],varcat,mean)
+    fdic2 = tapply(Psi[,eje2],varcat,mean)
+    #points(fdic1,fdic2,pch=21, bg="#F0F0F0" ,col=pointColors[i], labels=levels(varcat), cex=pointSize(varcat))
+    points(fdic1,fdic2,pch=21, lwd = 2 ,col=pointColors[i], labels=levels(varcat), cex=pointSize(varcat))
+    text(fdic1,fdic2+0.03,labels=levels(varcat),col=textColors[i], cex=catCEX,lwd=2)
+  }
+  
+  # Plot numeric variables vectors
+  if(plotNum){
+    arrows(ze, ze, X, Y, length = 0.07,col="blue")
+    text(X,Y,labels=etiq,col="darkblue", cex=0.7)
+  }
+}
+```
+
+We'll not analyze every categorical variable, because there `r length(catVarsNames)` of those and it would be benyond the scope of the assignment. Then, we have selected 14 of them and we'll analyze them in groups because they are connected in some way.
+
+
+\blandscape
+
+```{r, fig.height = 8, fig.width = 12, fig.align = "center"}
+  categoricalPlot(c("SEXE", "CAT_ESP", "IDEOL_1_7", "REC_PARLAMENT_VOT"), 1, 2, 1.5, 2, TRUE, 1)
+```
+
+```{r, fig.height = 8, fig.width = 12, fig.align = "center"}
+  categoricalPlot(c("SIT_ECO_CAT", "SIT_ECO_ESP", "SIT_POL_CAT", "SIT_ECO_PERSONAL"), 1, 2, 1.5, 1.5, TRUE, 1)
+```
+
+```{r, fig.height = 8, fig.width = 12, fig.align = "center"}
+categoricalPlot(c("PART_PARLAMENT", "PART_CONGRES"), 1, 2, 1.5, 1, TRUE, 1)
+```
+
+```{r, fig.height = 8, fig.width = 12, fig.align = "center" }
+  categoricalPlot(c("INT_PARLAMENT_VOT", "INT_CONGRES_VOT","REC_PARLAMENT_VOT" , "REC_CONGRES_VOT"), 1, 2, 2, 2, TRUE, 1)
+```
+
+\elandscape
+#### SEXE, CAT_ESP, IDEOL_1_7, REC_PARLAMENT_VOT \
+ \
+Here we can see that both of the categories of the variable **SEXE** seat next to the origin point, which means that the their contribution to the subspace is very little. It seems like that men lean more to the left and satisfaction with the previous election while women the opposite, but it's so slight it's barely significative.
+
+As for the variable **CAT_ESP**, there's a clear separation between the people that feel they're Catalans in Catalonia and the other categories, especially the ones that declare themselves as Spanish. The political ideology generally goes from negative to positive in the first axis and slightly from positive to negative in the second axis as we go more to the left. This would suggest that left-leaning people are more satisfied with the "Parlament"'s decision, the February 14th election and, curiously, those that feel more catalan.
+
+The political parties votes occupy spaces near their ideologies, except maybe "Junts per Catalunya" which would be occupying a left-leaning space, which is not necessarily adequate.
+
+ 
+#### SIT_ECO_CAT, SIT_ECO_ESP, SIT_POL_CAT, SIT_ECO_PERSONAL \
+ \
+This plot suggests that people that think that the Spanish economic situation is good also think the Catalan one is very bad and it will get worse. Howver, they say their personal economy is neither good or bad. The categories of people that think that the situation (either political or economic) is bad, are very close to the origin point, which means that they're not distinctive or representative in this subspace.
+
+People that think that their personal economic situation is very good or good are more likely to be satisfied with the February 14th election and believe the "Parlament" decisions were good.
+
+ 
+#### PART_PARLAMENT, PART_CONGRES \
+ \
+The participation in both elections ("Parlament" and "Congreso") is very associated. The categories of people that didn't vote, regardless of the reason, are very associated and it's more likely that they weren't satisfied with the February 14th election. The opposite happens for the ones that voted for sure, although they are larger categories and closer to the center, which means that it isn't as strongly correlated.
+
+ 
+#### INT_PARLAMENT_VOT, INT_CONGRES_VOT, REC_PARLAMENT_VOT, REC_CONGRES_VOT \
+ \
+In this plot we can see, for the most part, exactly what we expected: each category representing the vote to a party in previous and present "Parlament" and "Congreso" elections are very closely related, with 3 curious facts:
+
+  - The profile of "C's"'s votes in previous "Congreso" elections is different from the rest of possibilities, much more close to "Vox", mainly, and the "PPC".
+  - The "PACMA" seems to be a party close to the right and very unsatisfied with the "Parlament" decision. However, this might be simply a result from a small sample size.
+  - The "PDeCAT" is in the space in which we'd expect it to be, but it's very spread. It could be, again, caused by the small sample size.
+
+\newpage
+\blandscape
+```{r, fig.height = 8, fig.width = 12, fig.align = "center" }
+old.par <- par(mfrow = c(2,2))
+  categoricalPlot(c("SEXE", "CAT_ESP", "IDEOL_1_7", "REC_PARLAMENT_VOT"), 1, 2, 1.5, 2, FALSE, 0.8)
+  categoricalPlot(c("SIT_ECO_CAT", "SIT_ECO_ESP", "SIT_POL_CAT", "SIT_ECO_PERSONAL"), 1, 2, 1.5, 1.5, FALSE, 0.8)  
+  categoricalPlot(c("PART_PARLAMENT", "PART_CONGRES"), 1, 2, 1.5, 1, FALSE, 0.8)
+  categoricalPlot(c("INT_PARLAMENT_VOT", "INT_CONGRES_VOT","REC_PARLAMENT_VOT" , "REC_CONGRES_VOT"), 1, 2, 2, 2, FALSE, 0.8)
+par(old.par)
+```
+\elandscape
+### Conclusions
+
+Looking at all the variable groups analyzed in the previous section, we can interpret them all together and finding associations between them. This will be easier if we do it by quadrants, as it's an easy partition to do, which corresponds to direct or inverse relations of the categories to the axis or principal component.
+
+In the upper left quadrant, we see a strong presence of spanish nationalism right-leaning parties votes in previous and future elections in both the "Parlament" and "Congreso". As expected, these are closely related to the people that feel "less catalan". Also, the ideologies present there are center or right-leaning. Lastly, there's a high association with people who didn't vote and a ligther one with people that think the spanish economic is good but the Catalan one is bad. They also say their personal economy has worsened and, surprisingly, the political situational in Catalonia is neither good or bad.
+
+In the upper right quadrant there isn't much, besides the votes to "Catalunya en Comú Podem" and "Other parties", which seems to be logical, considering they are ambivalent regarding the independence of Catalonia.
+
+In the lower left side, we only see a couple of Unknown answers to economic situation question answers. Also of people who think that the spanish economic situation is very good, but that is probably due to the fact that only 2 people answered that way.
+
+Lastly, in the lower right quadrant we see almost all the opposite answers from the upper left quadrant. There we see catalan nationalistic parties. There's also a left-leaning tendency, with the possible exception of "Junts per Catalunya". The answers about spanish and catalan economic situation are diametrically opposed.
+
+# Clustering and profiling
+
+```{r clustering , echo=FALSE}
+
+                        # Install dplyr
+library("dplyr")                                     # Load dplyr
+data_num2 <- select_if(dd, is.numeric)               # Subset numeric columns with dplyr
+     
+
+dcon <- data_num2
+d  <- dist(dcon[1:10,])
+
+library(cluster)
+
+actives<-c(1:53)
+dissimMatrix <- daisy(dd[,actives], metric = "gower", stand=TRUE)
+
+distMatrix<-dissimMatrix^2
+```
+
+
+## Dendrogram
+
+This is the dendrogram we obtained from our data, observing it we decided to cut our dendrogram at height 2, so we have 4 different clusters
+
+```{r dendo1, echo=FALSE}
+h1 <- hclust(distMatrix,method="ward.D2") 
+
+plot(h1)
+
+```
+
+
+Here we see the 4 different classes more clearly. We were also thinking of only doing 3 different classes because when we started with the profiling we saw that classes 1 and 4 were very similar, later we will explain why we finally decided to stay with four classes.
+```{r dendo2, echo=FALSE, fig.align='center'}
+suppressPackageStartupMessages(library(dendextend))
+avg_dend_obj <- as.dendrogram(h1)
+avg_col_dend <- color_branches(avg_dend_obj, h = 2)
+plot(avg_col_dend)
+```
+
+Here we see the number of persons in each of the classes
+
+```{r,  echo=FALSE}
+k<-4
+c2 <- cutree(h1,k)
+table(c2)
+```
+
+We can begin to identify the different classes in this scatter plot, where we can see class 3 in green is for a person with a Spanish sentiment. And the other way around for class 2 being more identified with a Catalan sentiment. 
+
+It's important to say that the answers given were Integers from 0 to 10, but we can also see decimals on this plot, that because those were missing values we imputed.
+
+That brings us to classes 1 and 2 that as we can see are distributed all over the plot, the interesting thing is that we can see that these classes have a lot of missing values (later we will see that probably this is correlated to this classes being where the persons are more uncertain or don't care as much about politics).
+
+```{r cars, echo=FALSE}
+c1<-c2
+plot(dd$CAT_0_10,dd$ESP_0_10,col=c1,main="Clustering of credit data in 4 classes",xlab = "Catalanist sentiment",ylab = "Spanish sentiment")
+legend("topright",c("class1","class2", "class3","class4"),pch=1,col=c(1:k))
+```
+
+
+Profiling preparation
+
+```{r,  echo=FALSE}
+  
+  #Calcula els valor test de la variable Xnum per totes les modalitats del factor P
+  ValorTestXnum <- function(Xnum,P){
+     #freq dis of fac
+     nk <- as.vector(table(P)); 
+     n <- sum(nk); 
+     #mitjanes x grups
+     xk <- tapply(Xnum,P,mean);
+     #valors test
+     txk <- (xk-mean(Xnum))/(sd(Xnum)*sqrt((n-nk)/(n*nk))); 
+     #p-values
+     pxk <- pt(txk,n-1,lower.tail=F);
+     for(c in 1:length(levels(as.factor(P)))){if (pxk[c]>0.5){pxk[c]<-1-pxk[c]}}
+     return (pxk)
+  }
+  
+  ValorTestXquali <- function(P,Xquali){
+     taula <- table(P,Xquali);
+     n <- sum(taula); 
+     pk <- apply(taula,1,sum)/n;
+     pj <- apply(taula,2,sum)/n;
+     pf <- taula/(n*pk);
+     pjm <- matrix(data=pj,nrow=dim(pf)[1],ncol=dim(pf)[2]);      
+     dpf <- pf - pjm; 
+     dvt <- sqrt(((1-pk)/(n*pk))%*%t(pj*(1-pj))); 
+     #i hi ha divisions iguals a 0 dona NA i no funciona
+     zkj <- dpf
+     zkj[dpf!=0]<-dpf[dpf!=0]/dvt[dpf!=0]; 
+     pzkj <- pnorm(zkj,lower.tail=F);
+     for(c in 1:length(levels(as.factor(P)))){for (s in 1:length(levels(Xquali))){if (pzkj[c,s]> 0.5){pzkj[c,s]<-1- pzkj[c,s]}}}
+     return (list(rowpf=pf,vtest=zkj,pval=pzkj))
+  }
+  # Cal executar codi del clustering i preparació del profiling
+  #dades contain the dataset
+  dades<-dd
+  #dades<-dd[filtro,]
+  #dades<-df
+  K<-dim(dades)[2]
+  par(ask=TRUE)
+  
+  #P must contain the class variable
+  P<-c2
+  #P<-df[,33]
+  
+  nc<-length(levels(factor(P)))
+  pvalk <- matrix(data=0,nrow=nc,ncol=K, dimnames=list(levels(P),names(dades)))
+  nameP<-"Class"
+  n<-dim(dades)[1]
+```
+
+Once we figured out that we had 4 clusters in our dendrogram, we started the profiling section where we examine each selected variable and we obtain information about each cluster. Before starting, we defined 3 main questions that we wanted to know about each group: Ideology, electoral participation and opinion on the independence of Catalonia. Of course, we had a lot more questions that we wanted figure out, but we thought these 3 would be the ones that defined the groups the most. 
+Of the multiple variables that we had in our database, we selected the following, which were the ones that, when looking at their graphs, were the most interesting to draw conclusions.
+
+## Dataprofiling of variables
+### SEXE
+
+First we have the categorical variable SEXE, and here we found out that men tend to be slightly more predominant in the clusters 2 and 3, while women prevail a bit more in the clusters 4 and 1. Later on we will see that groups 1 and 2 are a lot more participatory and caring about the issues questioned in the CEO's survey. However, groups 4 and 1 either don't vote, vote blank or their vote is unknown.
+We see difference in electoral participation, but we don't see a lot of differences in ideology or other sociopolitical issues between men an women. Even if they are participatory or not they all tend to be similar in their ideological groups.
+
+
+```{r,  echo=FALSE}
+        # Variable Sexe
+        #print(paste("Variable", names(dades)[5]))
+        table<-table(P,dades[,5])
+        rowperc<-prop.table(table,1)
+        colperc<-prop.table(table,2)
+        dades[,5]<-as.factor(dades[,5])
+        marg <- table(as.factor(P))/n
+        #print(append("Categories=",levels(as.factor(dades[,5]))))
+        
+        #with legend
+        plot(marg,type="n",ylim=c(0,1),main=paste("Prop. of pos & neg by",names(dades)[5]))
+        paleta<-rainbow(length(levels(dades[,5])))
+        for(c in 1:length(levels(dades[,5]))){lines(rowperc[,c],col=paleta[c]) }
+        legend("topright", levels(dades[,5]), col=paleta, lty=2, cex=0.6)
+        
+        # print("Test Chi quadrat: ")
+        # print(chisq.test(dades[,5], as.factor(P)))
+        # 
+        # print("valorsTest:")
+        # print( ValorTestXquali(P,dades[,5]))
+        # calcular els pvalues de les quali
+
+```
+
+### SIT_ECO_PERSONAL
+
+We have defined the surveyed by sex, now we wanted to see their economical situation. We have 5 questions related to that. Some define their opinion on the economical situation in Catalonia (currently, prospectively and retrospectively) and others in Spain. But the ones that we were more curious about were the ones that talked about their personal economical position, specifically their current one and if they think it has improved or not since the last election.
+What we saw with these graphs is that the tendency of all groups, except the second one, is that the economical situation is the same or it has gotten worse. Cluster 1 tends to have a little a bit more of the option that says it is worse, although the option that says it is the same also prevails just like the other clusters.
+We will see in other plots that the second group contains people who hardly vote and who care less about the questions in the survey.
+
+
+```{r,  echo=FALSE}
+         # Current personal economical situation
+         # print(paste("Variable", names(dades)[14]))
+         table<-table(P,dades[,14])
+         rowperc<-prop.table(table,1)
+         colperc<-prop.table(table,2)
+         dades[,14]<-as.factor(dades[,14])
+         marg <- table(as.factor(P))/n
+         # print(append("Categories=",levels(as.factor(dades[,14]))))
+         
+         # Gràfic linear (with legend)
+         plot(marg,type="n",ylim=c(0,1),main=paste("Prop. of pos & neg by",names(dades)[14]))
+         paleta<-rainbow(length(levels(dades[,14])))
+         for(c in 1:length(levels(dades[,14]))){lines(rowperc[,c],col=paleta[c]) }
+         legend("topright", levels(dades[,14]), col=paleta, lty=2, cex=0.6)
+         
+         table<-table(dades[,14],P)
+         # print("Cross Table:")
+         # print(table)
+         # print("Distribucions condicionades a columnes:")
+         # print(colperc)
+         # 
+         # print("Test Chi quadrat: ")
+         # print(chisq.test(dades[,14], as.factor(P)))
+         # 
+         # print("valorsTest:")
+         # print( ValorTestXquali(P,dades[,14]))
+         #calcular els pvalues de les quali
+```
+
+### SIT_ECO_CAT and SIT_ECO_ESP
+
+Now we are going to see what do the surveyed think about the economical situation in Catalonia and in Spain. Here we are starting to see some ideological and identity (Catalan or Spanish) differences between groups. The possible responses are: good, bad, very good, very bad, neither good nor bad or unknown. 
+On both of the plots the tendecy in every cluster is that the economical situation is bad. Although we start to see differences in the extreme responses in the 2 plots: on the Catalan economical situation plot we see that cluster 2 has less "very bad" responses and more "good" responses than the other clusters, and cluster 3 has a lot more "very bad" and less "good" responses than the other groups. And if we look at the Spain's economical situation plot the options seem to reverse (cluster 2 has more "very bad" and less "good" response, and vice versa with cluster 3). Here we can clearly see the polarization between the 2 most participatory groups (2 and 3). We see that cluster 2 tends to have a more positive response regarding Catalonia's situation and a more negative one regarding Spain's, while cluster 3 is the other way around.
+Cluster 4 and 1 have a more neutral or unknown response about this issue, so we count them as less participatory.
+
+#### Catalonia's current economical situation:
+```{r,  echo=FALSE, fig.align='center', fig.width=6}
+        # Catalonia eco. situation
+        # print(paste("Variable", names(dades)[10]))
+        table<-table(P,dades[,10])
+        rowperc<-prop.table(table,1)
+        colperc<-prop.table(table,2)
+        dades[,10]<-as.factor(dades[,10])
+        marg <- table(as.factor(P))/n
+        # print(append("Categories=",levels(as.factor(dades[,10]))))
+        
+        #with legend
+        plot(marg,type="n",ylim=c(0,1),main=paste("Prop. of pos & neg by",names(dades)[10]))
+        paleta<-rainbow(length(levels(dades[,10])))
+        for(c in 1:length(levels(dades[,10]))){lines(rowperc[,c],col=paleta[c]) }
+        legend("topright", levels(dades[,10]), col=paleta, lty=2, cex=0.6)
+```
+
+#### Spain's current economical situation:
+```{r,  echo=FALSE, fig.width=6}
+        # Spanish eco. situation
+        # print(paste("Variable", names(dades)[13]))
+        table<-table(P,dades[,13])
+        rowperc<-prop.table(table,1)
+        colperc<-prop.table(table,2)
+        dades[,13]<-as.factor(dades[,13])
+        marg <- table(as.factor(P))/n
+        # print(append("Categories=",levels(as.factor(dades[,13]))))
+        
+        #with legend
+        plot(marg,type="n",ylim=c(0,1),main=paste("Prop. of pos & neg by",names(dades)[13]))
+        paleta<-rainbow(length(levels(dades[,13])))
+        for(c in 1:length(levels(dades[,13]))){lines(rowperc[,c],col=paleta[c]) }
+        legend("topright", levels(dades[,13]), col=paleta, lty=2, cex=0.6)
+```
+
+### SIT_POL_CAT
+
+Now we wanted to see what do they think about the current political situation in Catalonia, since the surveyed are all Catalan residents. We are continuing to see the same polarizing tendency between cluster 2 and 3, but we have some surprises with cluster 1.
+Cluster 2, the most favorable to Catalonia, has the least "very bad" and the most "very good" responses than the other groups and vice versa with cluster 3. Again, we see the main differences with the more extreme options, either good or bad.
+Cluster 1, this time is the one that has the most "bad" responses. It surprised us to see that the least participatory cluster had such a bad opinion on Catalan politics. This could be interpreted in many ways, like for example "voter frustration", although this conclusion is out of our data scope.
+
+```{r,  echo=FALSE, fig.align = "center"}
+        # Catalan pol. situation
+        # print(paste("Variable", names(dades)[15]))
+        table<-table(P,dades[,15])
+        rowperc<-prop.table(table,1)
+        colperc<-prop.table(table,2)
+        dades[,15]<-as.factor(dades[,15])
+        marg <- table(as.factor(P))/n
+        # print(append("Categories=",levels(as.factor(dades[,15]))))
+        
+        barplot(table(dades[,15], as.factor(P)), beside=TRUE,col=paleta)
+        legend("topright",levels(as.factor(dades[,15])),pch=1,cex=0.5, col=paleta)
+        
+        # print("Test Chi quadrat: ")
+        # print(chisq.test(dades[,15], as.factor(P)))
+        # 
+        # print("valorsTest:")
+        # print( ValorTestXquali(P,dades[,15]))
+        #calcular els pvalues de les quali
+```
+
+### CAT_ESP
+
+In this next categorical variable we are going to see the national identity of the surveyed. It is asked if they feel a Catalan residing in Catalonia, a Catalan residing in Spain, a Spanish residing in Catalonia, a Spanish residing in Spain, neither or another identity or unknown.
+In the following plot, we clearly see a group that really stands out, which is cluster 2. It has a lot of "Catalan residing in Catalonia" responses, way more than the other clusters, and the least "Catalan residing in Spain" responses, although it is not the one with less "Spanish residing in Catalonia" (that would be group 3). Cluster 3 is the other way around with those responses. Cluster 4 and 1 have a lot of "neither or another identity" or "unknown" (second group) responses. 
+Here we still can't say group 2 only prevails a more pro-Catalan identity (maybe pro-independence) group, because it has quite a lot "Catalan residing in Spain" responses. This is going to be more refined later on with the voting party question.
+
+```{r,  echo=FALSE}
+        # Catalan/Spanish identity
+        # print(paste("Variable", names(dades)[19]))
+        table<-table(P,dades[,19])
+        rowperc<-prop.table(table,1)
+        colperc<-prop.table(table,2)
+        dades[,19]<-as.factor(dades[,19])
+        marg <- table(as.factor(P))/n
+        # print(append("Categories=",levels(as.factor(dades[,19]))))
+        
+        #with legend
+        plot(marg,type="n",ylim=c(0,1),main=paste("Prop. of pos & neg by",names(dades)[19]))
+        paleta<-rainbow(length(levels(dades[,19])))
+        for(c in 1:length(levels(dades[,19]))){lines(rowperc[,c],col=paleta[c]) }
+        legend("topright", levels(dades[,19]), col=paleta, lty=2, cex=0.6)
+        
+        # print("Test Chi quadrat: ")
+        # print(chisq.test(dades[,19], as.factor(P)))
+        # 
+        # print("valorsTest:")
+        # print( ValorTestXquali(P,dades[,19]))
+        #calcular els pvalues de les quali
+```
+
+### IDEOL_1_7
+
+In this next question we see the ideology of the surveyed. This is defined between the following options: center, center-right, center-left, right, left, far-right, far-left or unknown.
+In the data that we gathered for this questions we clearly see an overall leftist ideology, although some groups more than the others. The one that stands out as the most leftist is cluster 2, with a far more left, center-left and far-left ideology, and the least right and far-right than the other groups. Cluster 3, although it has a majority left, is the one, along with cluster 1 in some instances, with the most center and center-right ideology and also it has quite a lot right-wing ideology.
+Cluster 4 and 1 on the other hand have lots of "unknown" options and their ideology tends to be less extremist than 2 and 3. The second group, although, is slightly more right-wing than the first one (more center-right and right).
+
+
+```{r,  echo=FALSE}
+        # Ideology
+        # print(paste("Variable", names(dades)[20]))
+        table<-table(P,dades[,20])
+        rowperc<-prop.table(table,1)
+        colperc<-prop.table(table,2)
+        dades[,20]<-as.factor(dades[,20])
+        marg <- table(as.factor(P))/n
+        # print(append("Categories=",levels(as.factor(dades[,20]))))
+        paleta<-rainbow(length(levels(dades[,20])))
+        barplot(table(dades[,20], as.factor(P)), beside=TRUE,col=paleta)
+        legend("topright",levels(as.factor(dades[,20])),pch=1,cex=0.5, col=paleta)
+        
+        # print("Test Chi quadrat: ")
+        # print(chisq.test(dades[,20], as.factor(P)))
+        # 
+        # print("valorsTest:")
+        # print( ValorTestXquali(P,dades[,20]))
+```
+
+At this point, we see that in every question cluster 4 and 1 are very similar at every issue. We considered unifying both clusters in one, however, we decided not to do it after seeing some variables that we are going to see next. This variables represent plots regarding voter participation, what did they vote in the past elections or intend to vote in the following ones.
+
+## CAT_0_10
+The most interesting thing we can extract from this boxplot is how much class 2 is on the right in respect to the others indicating the tendency we already observed of it being the class with a stronger Catalan sentiment.
+
+```{r, echo= FALSE}
+k <- grep("CAT_0_10", colnames(dd))
+
+      
+      boxplot(dades[,k]~P, main=paste("Boxplot of", names(dades)[k], "vs", nameP ), horizontal=TRUE)
+      
+      
+
+```
+## ESP_0_10
+Here we can see the same but the other way around, being class 3 the one with a stronger Spanish sentiment.
+What we found interesting about these two plots is that class 3 is more on the Spanish side it stays around the middle when asked about Catalan sentiment. But with class 2 this doesn't happen instead when asked about Spanish sentiment the answers given were very low, this may be because people from class 2 are more extremist, or have a stronger sentiment than those from class 3.
+
+```{r, echo= FALSE}
+k <- grep("ESP_0_10", colnames(dd))
+
+      
+      boxplot(dades[,k]~P, main=paste("Boxplot of", names(dades)[k], "vs", nameP ), horizontal=TRUE)
+      
+      
+
+```
+
+## MONARQUIA_REPUBLICA
+
+Here we see that class 3 is the one that wants a republic the most, and class 4 being the one that wants a monarchy the most, this is to be expected, seeing the results we've got until now, being class 3 on the left side of the political spectrum and class 4 on the right side.
+
+```{r ,echo = FALSE}
+k <- grep("MONARQUIA_REPUBLICA", colnames(dd))
+table<-table(P,dades[,k])
+        rowperc<-prop.table(table,1)
+        colperc<-prop.table(table,2)
+        dades[,k]<-as.factor(dades[,k])
+        marg <- table(as.factor(P))/n
+        
+        #with legend
+        plot(marg,type="n",ylim=c(0,1),main=paste("Prop. of pos & neg by",names(dades)[k]))
+        paleta<-rainbow(length(levels(dades[,k])))
+        for(c in 1:length(levels(dades[,k]))){lines(rowperc[,c],col=paleta[c]) }
+        legend("topright", levels(dades[,k]), col=paleta, lty=2, cex=0.6)
+
+```
+
+## SIGNIFICA_ESP
+
+In this plot we see the sentiment of the people of different classes.
+Both class 1 and 3 are the ones that feel stronger about Spain being their country.
+Were class 2 considers Spain is an alien state. This alings with what we've seen before.
+
+```{r, echo = FALSE}
+k <- grep("SIGNIFICA_ESP", colnames(dd))
+table<-table(P,dades[,k])
+        rowperc<-prop.table(table,1)
+        colperc<-prop.table(table,2)
+        dades[,k]<-as.factor(dades[,k])
+        marg <- table(as.factor(P))/n
+        print(append("Categories=",levels(as.factor(dades[,k]))))
+        
+        #with legend
+        plot(marg,type="n",ylim=c(0,1),main=paste("Prop. of pos & neg by",names(dades)[k]))
+        paleta<-rainbow(length(levels(dades[,k])))
+        for(c in 1:length(levels(dades[,k]))){lines(rowperc[,c],col=paleta[c]) }
+        legend("topright", levels(dades[,k]), col=paleta, lty=2, cex=0.6)
+
+
+```
+
+## ACTITUD_INDEPENDENCIA
+
+In this plot we see the what we should expect, class 2 is the one with most people that want independence, and class 3 the one with most people that don't want it. What's interesting is that in classes 1 an 4 (which usually don't have as much opinion) the predominant attitude is non-independence.
+
+```{r, echo = FALSE}
+k <- grep("ACTITUD_INDEPENDENCIA", colnames(dd))
+table<-table(P,dades[,k])
+        rowperc<-prop.table(table,1)
+        colperc<-prop.table(table,2)
+        dades[,k]<-as.factor(dades[,k])
+        marg <- table(as.factor(P))/n
+        print(append("Categories=",levels(as.factor(dades[,k]))))
+        
+        #with legend
+        plot(marg,type="n",ylim=c(0,1),main=paste("Prop. of pos & neg by",names(dades)[k]))
+        paleta<-rainbow(length(levels(dades[,k])))
+        for(c in 1:length(levels(dades[,k]))){lines(rowperc[,c],col=paleta[c]) }
+        legend("topright", levels(dades[,k]), col=paleta, lty=2, cex=0.6)
+
+
+```
+
+
+## ELECCIONS_IMPORTANCIA
+
+Again what's interesting on this plot is that class 2 feels Parliament of Catalonia elections are more important. And the other way around for class 3 where they feel general elections are more important.
+
+```{r ,echo = FALSE}
+k <- grep("ELECCIONS_IMPORTANCIA", colnames(dd))
+table<-table(P,dades[,k])
+        rowperc<-prop.table(table,1)
+        colperc<-prop.table(table,2)
+        dades[,k]<-as.factor(dades[,k])
+        marg <- table(as.factor(P))/n
+        print(append("Categories=",levels(as.factor(dades[,k]))))
+        
+        #with legend
+        plot(marg,type="n",ylim=c(0,1),main=paste("Prop. of pos & neg by",names(dades)[k]))
+        paleta<-rainbow(length(levels(dades[,k])))
+        for(c in 1:length(levels(dades[,k]))){lines(rowperc[,c],col=paleta[c]) }
+        legend("topright", levels(dades[,k]), col=paleta, lty=2, cex=0.6)
+ 
+
+```
+
+### SATISFACCIO_ELECCIONS_14F2021
+Here we can see how the cluster 2 is satisfied with the results of the last elections. This is because in this elections win the majority independent parties , and this cluster is formed for independent people.
+
+The cluster 4 is a little bit satisfied because they don't vote but if they have to, they will vote left and independent parties.
+
+The other two clusters they are a little bit unsatisfied because they are from center, right and center-left ideology. 
+
+
+```{r echo= FALSE}
+nCol <- grep("SATISFACCIO_ELECCIONS_14F2021", colnames(dd))
+
+
+brk <- seq(from = 0, to = 10, by = 1)
+#print(paste("Anàlisi per classes de la Variable:", names(dades)[nCol]))
+
+boxplot(dades[,nCol]~P, main=paste("Boxplot of", names(dades)[nCol], "vs", nameP ), horizontal=TRUE)
+
+
+```
+
+### PART_PARLAMENT
+
+Here we can see the difference between cluster 1 and cluster 4. Both clusters don't care about politics but the cluster 1 goes vote and the cluster 2 don't go to vote (for different reasons).
+
+```{r echo = FALSE}
+nCol <- grep("PART_PARLAMENT", colnames(dd))[1]
+
+table<-table(P,dades[,nCol])
+
+rowperc<-prop.table(table,1)
+
+colperc<-prop.table(table,2)
+
+dades[,nCol]<-as.factor(dades[,nCol])
+
+
+
+paleta<-rainbow(length(levels(dades[,nCol])))
+barplot(table(dades[,nCol], as.factor(P)), beside=TRUE,col=paleta)
+legend("topright",levels(as.factor(dades[,nCol])),pch=1,cex=0.5, col=paleta)
+
+
+```
+
+### REC_PARLAMENT_VOT
+
+In this plot we can see, and confirm some conclusions. The cluster 2 vote independent and left parties. 
+
+In the cluster 3 we see the voters of right, center and left-center parties (non-independent parties).
+
+In the cluster 1 we see the people that don't go to vote.
+
+In the cluster 4 we see the people who vote in blank and the people that don't want to say their vote. Maybe because they vote in blank, or they are extremists or they don't what to say it.
+
+```{r echo = FALSE}
+nCol <- grep("REC_PARLAMENT_VOT", colnames(dd))[2]
+table<-table(P,dades[,nCol])
+
+rowperc<-prop.table(table,1)
+
+colperc<-prop.table(table,2)
+
+dades[,nCol]<-as.factor(dades[,nCol])
+
+
+
+marg <-table(dades[,nCol])/n
+
+paleta<-rainbow(length(levels(as.factor(P))))
+plot(marg,type="l",ylim=c(0,1),main=paste("Prop. of pos & neg by",names(dades)[nCol]), las=3)
+for(c in 1:length(levels(as.factor(P)))){lines(rowperc[c,],col=paleta[c])}
+legend("topright", levels(as.factor(P)), col=paleta, lty=2, cex=0.6)
+
+
+```
+
+### INT_PARLAMENT_VOT
+
+In this plot we see that the intention of the vote is quite similar with no many differences. Here we can define the cluster 1 that they will not vote in the next elections but also if they have to vote, they will vote more left parties (people that don't vote maybe have mostly left ideology).
+
+
+```{r echo = FALSE}
+nCol <- grep("INT_PARLAMENT_VOT", colnames(dd))
+table<-table(P,dades[,nCol])
+
+rowperc<-prop.table(table,1)
+
+colperc<-prop.table(table,2)
+
+dades[,nCol]<-as.factor(dades[,nCol])
+
+
+marg <-table(dades[,nCol])/n
+
+paleta<-rainbow(length(levels(as.factor(P))))
+
+plot(marg,type="l",ylim=c(0,1),main=paste("Prop. of pos & neg by",names(dades)[nCol]), las=3)
+for(c in 1:length(levels(as.factor(P)))){lines(rowperc[c,],col=paleta[c])}
+legend("topright", levels(as.factor(P)), col=paleta, lty=2, cex=0.6)
+
+
+```
+
+
+### PART_PARLAMENT_ANTERIOR
+
+Here we can see the majority of people vote in the last autonomic elections. Even the cluster 1, that in 14F elections didn't vote.
+
+```{r echo = FALSE}
+nCol <- grep("PART_PARLAMENT_ANTERIOR", colnames(dd))
+
+ table<-table(P,dades[,nCol])
+
+ rowperc<-prop.table(table,1)
+ 
+ colperc<-prop.table(table,2)
+
+ dades[,nCol]<-as.factor(dades[,nCol])
+ 
+  paleta<-rainbow(length(levels(dades[,nCol])))
+
+ barplot(table(dades[,nCol], as.factor(P)), beside=TRUE,col=paleta)
+ legend("topright",levels(as.factor(dades[,nCol])),pch=1,cex=0.5, col=paleta)
+ 
+
+```
+
+### PART_CONGRES
+
+Here we can see the majority of people participate in the national elections. Cluster 1 is the one where don't vote or don't want to say if they vote.
+
+```{r echo=FALSE}
+nCol <- grep("PART_CONGRES", colnames(dd))
+ table<-table(P,dades[,nCol])
+
+ rowperc<-prop.table(table,1)
+ 
+ colperc<-prop.table(table,2)
+
+
+ dades[,nCol]<-as.factor(dades[,nCol])
+ 
+
+ paleta<-rainbow(length(levels(dades[,nCol])))
+
+ barplot(table(dades[,nCol], as.factor(P)), beside=TRUE,col=paleta)
+ legend("topright",levels(as.factor(dades[,nCol])),pch=1,cex=0.5, col=paleta)
+
+```
+\newpage
+## PCA & Clustering, coincidences and divergences
+
+Through our analysis of political context data, we can conclude after doing the clustering and PCA processes that there are lots of coincidences and some divergences between them.
+
+We see on both procedures that there are 2 clear ideological tendencies, and these ones tend to be associated with certain ideas. On the PCA plots, for example, we see on the upper left quadrant a more right-wing ideological tendency and this is associated with a high Spanish identity and less Catalan. We can get to the same conclusion with the graphs showing the data per cluster. Cluster number 4 gathers a group of people who have a stronger Spanish identity, while the parties they vote tend to have a more right-wing ideology and are way less favorable to the independence of Catalonia.
+
+On the opposite quadrant to the more right wing tendency we have the parties with a more left-leaning ideology. They are also a lot more favorable to the independence of Catalonia, so that is why Junts per Catalunya (a center-right independentist party) is also included in this region of the graph. This quadrant’s tendencies can be compared with cluster 3, which gathers surveyed people that answered with a more left-wing ideology, and their identity is way more Catalan than Spanish.
+
+Some divergences that we found is that on the upper-right quadrant, where there is a low participation in the elections and the predominant parties are En Comú Podem and Other parties. On the other hand, in the graphs by clusters, parties in the En Comú Podem candidacy and others are gathered in the third cluster along with the left-leaning parties, while people who didn’t vote or have little care of the issues answered in the survey are grouped in the second cluster.
+
+To sum it up, most of the conclusions that we draw during the cluster analysis are similar to the ones we found in the PCA, although in this last process we saw things that are represented better than what we saw during the profiling.
+
+\newpage
+## Profiling conclusions
+
+By looking at our dendrogram, we determined that we have 4 clusters. Two first clusters are formed by people who in the last elections didn’t vote for any political party (Cluster 1 and 4). Also we can say that they are formed by people who don't care about politics or they don’t want to talk about their political preferences.
+
+Cluster 2 and cluster 3 are similar because they have political participation but their ideology is quite different. 
+
+Cluster 2 is defined for voting left and independent political parties. They are satisfied with the results of the last elections because there was an independent majority. They defend the republic and they have a catalan nationalist feeling.
+
+Cluster 3 is defined for voting center and  left political parties (also includes the votants of PSC). They are satisfied with monarchy, they don’t want independence and they have more Spanish feelings than Catalan.
+
+\newpage
+
+# Working Plan
+
+During the making of this project we had some difficulties and obstacles that have arisen. We had problems that we didn’t consider at the beginning. One of them being that some commands on the script didn’t work on our data, so we had to find alternatives along with our professor. We could avoid a lot of scheduling risk by assigning 2 or 3 people on a task so we could help each other and finish the task effectively. Also, we had a lot of questions regarding the functionality of RStudio and the data mining methods that we were not familiar with, so we asked our professor, via email or in-person, and we could get on with the task.
+
+
+
+![](assignmentGrid.png)
+
+
+## Task description:
+1. Recode factors: shorten names and include an abbreviation of the variable name in the factor name. Remember to make tables that specify recoding.
+2. Recognize numerical variables as such. A script is required.
+3. Investigate variables if blanks are NA or have been coded as NP (Not Asked).
+4. In REC_PARLAMENT_VOT_ANTERIORS there’s people that respond “Other Parties” (“Altres Partits”) and put the equivalent in a national or municipal in variable REC_PARLAMENT_VOT_ANTERIORS_LITERALS in a party that was as an option in REC_PARLAMENT_VOT_ANTERIORS.
+  1. The same with REC_CONGRES_VOT i REC_CONGRES_VOT_LITERALS.
+  2. Look for more.
+5. Determine whether blank binary variables are NP (“Not Asked”) or NA (Not Applicable) depending on the variable.
+6. Do Gantt chart, assignment grid and risk plan.
+7. Basic initial univariate descriptive statistics of raw variables: 
+8. Explain the pre-processes done (preferably, do them and explain them more or less at the same time) and the decisions taken.
+9. Finish the Basic initial univariate descriptive statistics for new or modified variables.
+10. Metadata file that describes the selection of the variables considered for the analysis.
+  1. Working plan.    
+11. Make the document structure of the deliverable.
+12. Write non-technical sections and justify
+13. Formal description of Data structure and metadata
+14. Complete Data Mining process performed.
+15. PCA analysis for numerical variables.
+16. Hierarchical Clustering on original data.
+17. Profiling of clusters.
+18. Global discussion and general conclusions of the whole work. Analyze coincidences and divergences between ACP, AMC, Clustering.
+19. Fix univariate descriptive analysis
+20. Finish knn preprocessing (or find another formula)
+21. Adapt party votes to national candidacy (e.g. REC_PARLAMENT_VOT → RPV-Barcelona en Comú should be En comú podem)
+
+## Gantt Chart 
+![](gantt.png)
+
+
+## Risk assessment
+![](risk.png)
